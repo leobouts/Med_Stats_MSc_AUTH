@@ -1,0 +1,123 @@
+---
+title: "Example with parts from the Methods section of a report"
+author: "Fani Apostolidou Kiouti"
+date: "October 2021"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    theme:
+      bootswatch: minty
+    highlight: zenburn
+link-citations: yes
+bibliography: references.bib
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+irs <- read_excel("C:/Users/fa/Documents/AUTh.MSc/MRM/core/changes2020/intersalt.xlsx")
+```
+
+## Statistical analysis
+
+Variables were described with the appropriate summary measures: relative frequencies 
+were used for categorical data and measures of central tendency and dispersion for
+continuous data depending on their distribution. The *suitable* statistical tests 
+were implemented to explore variable relationships and a general linear model 
+was fit to investigate the **effect modification** of the independent variables 
+on the variable of interest. The level of significance was set to $\alpha = 0.05$. 
+The sample size was calculated prior to data collection depending on the 
+findings of a pilot study according to [@doi:10.1002/sim.7993].
+
+All analyses were run in R under version `r getRversion()` <https://cran.r-project.org/bin/windows/base/>.
+
+## Normality assessment
+
+Normality of continuous variables' distribution was evaluated with the 
+Shapiro - Wilk test from the `stats` package. 
+
+```{r, results = 'hide'}
+irsnm <- dplyr::select_if(irs[,-1], is.numeric)
+#
+lshap <- lapply(irsnm, shapiro.test)
+#
+swr <- lapply(lshap, `[`, c("statistic","p.value"))
+```
+
+Variable | S-W p-value
+---------|---------------
+Systolic pressure | `r round(swr$systolic.pressure[["p.value"]], 3)`
+Diastolic pressure | `r round(swr$diastolic.pressure[["p.value"]], 3)`
+Sodium excretion | `r round(swr$sodium.excretion[["p.value"]], 7)`
+
+## A plot
+
+```{r, echo = FALSE}
+library(ggplot2)
+ggplot(irs, aes(systolic.pressure, diastolic.pressure)) +
+  geom_point(aes(colour = sodium.excretion)) +
+  scale_colour_gradient2()
+  
+```
+
+## and a table
+
+A fundamental part of any report is the table of baseline characteristics, the Table 1.
+
+```{r Table 1 for Sodium Secretion, warning = FALSE, message = FALSE}
+library(gtsummary)
+library(gt)
+# Summary statistics, by numeric variables and for all categorical variables 
+irs %>%
+  select(-ID) %>%
+  mutate(continent = countrycode::countrycode(sourcevar = irs$country,
+                                              origin = "country.name",
+                                              destination = "continent")) %>%
+  select(-country) %>%
+  tbl_summary(by = gender,
+              lab = list(systolic.pressure ~ "Systolic pressure",
+                         diastolic.pressure ~ "Diastolic pressure",
+                         sodium.excretion ~ "Sodium excretion",
+                         continent ~ "Continent"),
+              statistic = list(systolic.pressure ~ "{mean} ({sd})",
+                               diastolic.pressure ~ "{mean} ({sd})",
+                               sodium.excretion ~ "{median} ({IQR})",
+                               all_categorical() ~ "{n} / {N} ({p}%)")) %>%
+# Add a label indicating the statistic
+  add_stat_label() %>%
+  add_p() %>%
+  bold_p() %>%
+  bold_labels() %>%
+# Make a gt table
+  as_gt() %>%
+  # Add title and subtitle
+  gt::tab_header(title = "Patient characteristics", subtitle = "Table 1") %>%
+  # Change the background colour
+  tab_options(table.background.color = "floralwhite",
+              heading.background.color =  "darkslategray", 
+              table.font.names = "calibri") #%>%
+
+
+
+#  as_rtf() -> tone
+# write_file(tone, path = "C:/Users/fa/Documents/tone.rtf")
+#-------
+# The last part of the code let us save the table
+# in Rich Text Format, which can be open with a word processor.
+```
+
+## Original data
+```{r}
+# An example of rectangular data exported as table with knitr::kable()
+irs %>%
+  mutate(continent = countrycode::countrycode(sourcevar = irs$country,
+                                              origin = "country.name",
+                                              destination = "continent")) %>%
+  mutate(map = diastolic.pressure + 1/3*(systolic.pressure - diastolic.pressure)) %>%
+  select(-ID) %>%
+  knitr::kable()
+```
+
+
+# References

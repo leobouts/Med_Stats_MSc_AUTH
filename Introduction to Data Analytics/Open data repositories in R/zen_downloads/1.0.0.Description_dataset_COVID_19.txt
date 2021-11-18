@@ -1,0 +1,82 @@
+"COVID-19 mortality correlation with cloudiness, sunlight, latitude in European countries"
+
+Dataset for article titled 
+"COVID-19 mortality: positive correlation with cloudiness, sunlight and no correlation with latitude in Europe"
+
+by SECIL OMER, ADRIAN IFTIME, VICTOR BURCEA
+
+Corresponding author: A. Iftime, University of Medicine and Pharmacy "Carol Davila", Biophysics Department, 8 Blvd. Eroii Sanitari, 050474 Bucharest, Romania. Email address: adrian.iftime [at] umfcd.ro.
+
+Article currently under review, "Epidemiology & Infection", ISSN: 0950-2688 (Print), 1469-4409 (Online) 
+
+===========
+Dataset file: 
+1.0.0.COVID-19_Mortality_Cloudiness_Insolation_EUROPE_March_August_2020.csv 
+
+
+Dataset graphical preview: 
+1.0.0.INFOGRAFIC_CloudFraction_vs_COVID-19_mortality_Europe_March-August_2020.png
+
+
+DATASET fields:
+"Country" :
+	Country name; 37 European countries included.
+
+"Date": 
+	Date stamp at the collection time.
+	Data collection was performed in the last day of every month. 
+	Date format: YYYY-MM-DD
+
+"Month_Key" : 
+	Date stamp at the collection time, formatted for easier monthly time series analysis.
+	Date format: YYYY-MM
+
+"Month_Fct2020"
+	Date stamp at the collection time,formatted for easier graphing, as a string with names of the months
+	(in English). 
+
+"Deaths_per_1Mpop" :
+	Monthly mortality from COVID-19 raported in the country, 
+	reported as number of COVID-19 deaths per 1 million population of the country, 
+	in that particular month / country. 
+	NB: it is reported as million population, not patients. 
+
+"LogDeaths_per_1Mpop" :
+	Log10 transformation of "Deaths_per_1Mpop"
+
+"Insolation_Average" :
+	Insolation average (solar irradiance at ground level),
+	in that particular month / country. 
+	It is expressed in Watt / square meter of the ground surface. 
+	Data derived from data avaialble at NASA Langley Research Center, NASA’s Earth Observatory, 
+	CERES / FLASHFlux team, 2020, 
+	https://neo.sci.gsfc.nasa.gov/view.php?datasetId=CERES_INSOL_M
+
+"Cloud_Fraction" :
+	Cloudiness (also known as cloud fraction, cloud cover, cloud amount or sky cover),
+	as decimal fraction of the sky obscured by clouds, 
+	in that particular month / country. 
+	Data derived from NASA Goddard Space Flight Center, NASA’s Earth Observatory,
+	MODIS Atmosphere Science Team, 2020, 
+	https://neo.sci.gsfc.nasa.gov/view.php?datasetId=MODAL2_M_CLD_FR 
+
+"CENTR_latitude" and
+"CENTR_longitude" :
+	Latitude and Longitude of the country centroid, for each country. 
+	Data derived from Google LLC, "Dataset publishing language: country centroids",
+	https://developers.google.com/public-data/docs/canonical/countries_csv	
+	NOTE: This is identical in every month (obviuously); 
+	it is redundantly included for easier monthly sectional analysis of the data.  
+
+===========
+Versioning: 1.0.0.COVID-19_Mortality_Cloudiness_Insolation_EUROPE_March_August_2020.csv 
+
+MAJOR: changes yearly; 1 = 2020
+MINOR: changes if new monthly data is added in that particular year. 
+PATCH: Changes only if errors or minor edits were performed. 
+
+DOI for this version: 10.5281/zenodo.4266758
+
+Dataset file source for this version (internal analysis source file):
+db_covid_all-ANALYSIS.2020-09-22_r10.csv
+

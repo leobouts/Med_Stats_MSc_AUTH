@@ -1,0 +1,157 @@
+```{r}
+
+## APPLY
+
+# Create a two dimensional matrix to work with:
+# matrix(data, nrow, ncol, byrow = FALSE, dimnames = NULL)
+M <- matrix(seq(1,12), 3, 4)
+M
+# apply FUN = min to rows to find the minimum value in each
+apply(M, 1, min)
+
+# or max to columns to find the maximum value
+apply(M, 2, max)
+```
+
+```{r}
+# Build a 3-dimensional array
+A <- array(seq(24), dim = c(3,4,2))
+A
+
+# Arrays with higher dimensions can be handled with 
+# apply as well, however indexing is more complicated:
+# Apply sum across each A[*, *, ] - In this case the 
+# result will be two-dimensional
+
+apply(A, c(1,2), sum) #sum across 3rd dimension
+```
+
+
+```{r}
+## LAPPLY
+
+# Create a list, L
+L <- list(d = 8, m = c(T,F,T), y = 1:13)
+L
+# Apply the length function on L's elements to see the number of values in each
+lapply(L, FUN = length)
+```
+
+
+```{r}
+# lapply() will pass the elements from the list as the first argument to the function
+# runif(n, min, max) generates n random 
+# deviates from the uniform distribution on the interval(min, max).
+
+lapply(1:3, runif, min = 6, max = 7) 
+```
+
+```{r}
+# calculate the coefficient of variation in the columns of a random dataframe, df:
+# a random dataframe using, again, the uniform distribution
+df <- as.data.frame(cbind(runif(100, 2,3), runif(100, 5,6))) 
+df
+# CV equals the standard deviation divided by the mean
+lapply(df, function(x) x = sd(x)/mean(x))
+```
+
+
+```{r}
+## SAPPLY
+
+V <- c(o = 1, e = 6, o = 3, e = 12, o = 5)
+split(V, names(V))
+# Split according to another grouping factor, defined separately
+m3 <- c("Non3", "M3", "M3", "M3", "Non3")
+split(V, m3)
+```
+
+
+```{r}
+# Combine the two grouping variables in a single interaction
+split(V, list(names(V), m3))
+split(V, list(names(V), m3), drop = T)
+# Using a split function to calculate the means in each subset of interactions in V
+sapply(split(V, list(names(V), m3)), mean)
+```
+
+```{r}
+## MAPPLY
+mapply(mean, L)
+# create an object with mapply
+mapply(matrix, list(x = runif(12, 3, 5), y = 1:6, z = 1), nrow = c(3, 2, 1))
+```
+
+```{r}
+## purrr
+
+# Impute numeric values from the normal distribution:
+# First, define means (we aim for 3 num variables, therefore three means)
+mu <- list(50, 1300, 36)
+# Define their standard deviations
+sigma <- list(5, 250, 2)
+# Combine them into one list (20 corresponds to the number of observations - it is arbitrary)
+nums <- list(20, mu, sigma)
+```
+
+```{r}
+library(dplyr)
+library(purrr)
+library(magrittr)
+# Now, use pmap_dfc to iterate through the values of the num list and calculate random values from the normal distribution
+nums %<>% 
+  pmap_dfc(rnorm)
+# Name the newly born variables
+names(nums) <- c("age", "brthw", "brtha")
+nums
+# Create a data frame with the numericals, and ID variable and an arbitrary gender variable
+dtfr <- data.frame(id = c(1:20), gender = rep(c("m","f"), 10), nums)
+dtfr
+dtfr$gender <- as.factor(dtfr$gender)
+```
+
+
+```{r}
+# use a map function to calculate a metric 
+map_dbl(dtfr, mean)
+
+# or an interaction between variables, i.e. a linear model
+dtfr %>%
+  split(.$gender) %>%
+  map(~lm(brthw ~ brtha, data = .))
+```
+
+
+```{r}
+## DPLYR
+
+library(readxl)
+irs <- read_excel("C:/Users/fa/Documents/AUTh.MSc/MRM/core/changes2020/intersalt.xlsx")
+# drop the ID variable to facilitate computations
+irsrd <- select(irs, -ID)
+glimpse(irsrd)
+```
+
+```{r}
+# let us compute the mean arterial pressure and add it as a new variable in the dataset:
+# use the assignment pipe operator %<>%
+irsrd %<>%
+  mutate(map = (systolic.pressure/3 + diastolic.pressure))
+glimpse(irsrd)
+```
+
+```{r}
+## WIDE AND LONG FORMAT
+
+# GATHER
+irsrd %<>%
+  tidyr::gather(key = "sample", value = "pressures", systolic.pressure, diastolic.pressure)
+glimpse(irsrd)
+nrow(irsrd)
+irsrd
+
+# SPREAD
+# no characters this time
+tidyr::spread(irsrd, key = sample, value = pressures)
+
+```

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href=data:, rel=icon>
+	<link type="text/css" rel="stylesheet" href="../style.css"/>
+	<title>R Base Plotting Without Wrappers</title>
+	<meta name="date" content="2020-03-14"/>
+	<meta name="update" content="2020-09-20"/>
+</head>
+<body>
+<a rel="author" href="http://karolis.koncevicius.lt/">Karolis Koncevičius</a>
+
+<h1 id="rbaseplottingwithoutwrappers">R base plotting without wrappers</h1>
+
+<p>Base plotting is as old as R itself yet for most users it remains mysterious.
+They might be using <code>plot()</code> or even know the full list of its parameters but most never understand it fully.
+This article attempts to demystify base graphics by providing a friendly introduction for the uninitiated.</p>
+
+<h2 id="deconstructingaplot">Deconstructing a plot</h2>
+
+<p>Quickly after learning R users start producing various figures by calling <code>plot()</code>, <code>hist()</code>, or <code>barplot()</code>.
+Then, when faced with a complicated figure, they start stacking those plots on top of one another using various hacks, like <code>add=TRUE</code>, <code>ann=FALSE</code>, <code>cex=0</code>.
+For most this marks the end of their base plotting journey and they leave with an impression of it being an ad-hoc bag of tricks that has to be learned and remembered but that otherwise is hard, inconsistent, and unintuitive.
+Nowadays even experts who write about base graphics<a href="#cn:1" id="cnref:1" title="see citation" class="citation"><sup>(1)</sup></a> or compare it with other systems<a href="#cn:2" id="cnref:2" title="see citation" class="citation"><sup>(2)</sup></a> share the same opinion.
+However, those initial functions everyone was using are only wrappers on top of the smaller functions that do all the work.
+And many would be surprised to learn that under the hood base plotting follows the paradigm of having a set of small functions that each do one thing and work well with one another.</p>
+
+<p>Let&#8217;s start with the simplest example.</p>
+
+<pre><code>plot(0:10, 0:10, xlab = &quot;x-axis&quot;, ylab = &quot;y-axis&quot;, main = &quot;my plot&quot;)
+</code></pre>
+
+<figure>
+<img src="figure/plot.svg" alt="" />
+</figure>
+
+<p>The <code>plot()</code> function above is really just a wrapper that calls an array of lower level functions.</p>
+
+<pre><code>plot.new()
+plot.window(xlim = c(0,10), ylim = c(0,10))
+points(0:10, 0:10)
+axis(1)
+axis(2)
+box()
+title(xlab = &quot;x-axis&quot;)
+title(ylab = &quot;y-axis&quot;)
+title(main = &quot;my plot&quot;)
+</code></pre>
+
+<p>Written like this all the elements comprising the plot become clear.
+Every new function call draws a single object on top of the plot produced up until that point.
+It becomes easy to see which line should be modified in order to change something on the plot.
+Just as an example let&#8217;s modify the above plot by: 1) adding a grid, 2) removing the box around the plot, 3) removing the axis lines, 4) making axis labels bold, 5) turning the annotation labels red, and 6) shifting the title to the left.</p>
+
+<pre><code>plot.new()
+plot.window(xlim = c(0,10), ylim = c(0,10))
+grid()
+points(0:10, 0:10)
+axis(1, lwd = 0, font.axis=2)
+axis(2, lwd = 0, font.axis=2)
+title(xlab = &quot;x-axis&quot;, col.lab = &quot;red3&quot;)
+title(ylab = &quot;y-axis&quot;, col.lab = &quot;red3&quot;)
+title(main = &quot;my plot&quot;, col.main = &quot;red3&quot;, adj = 0)
+</code></pre>
+
+<figure>
+<img src="figure/plot2.svg" alt="" />
+</figure>
+
+<p>In each case to achieve the wanted effect only a single line had to be modified.
+And the function names are very intuitive.
+A person without any R experience would have no trouble saying which element on the plot is added by which line or changing some of the parameters.</p>
+
+<p>So, in order to construct a plot various functions are called one by one.
+But where do we get all the names for those functions?
+Do we need to remember hundreds of them?
+Turns out the set of all the things you might need to do on a plot is pretty limited.</p>
+
+<pre><code>par()          # specifies various plot parameters
+plot.new()     # starts a new plot
+plot.window()  # adds a coordinate system to the plot region
+
+points()       # draws points
+lines()        # draws lines connecting 2 points
+abline()       # draws infinite lines throughout the plot
+arrows()       # draws arrows
+segments()     # draws segmented lines
+rect()         # draws rectangles
+polygon()      # draws complex polygons
+
+text()         # adds written text within the plot
+mtext()        # adds text in the margins of a plot
+
+title()        # adds plot and axis annotations
+axis()         # adds axes
+box()          # draws a box around a plot
+grid()         # adds a grid over a coordinate system
+legend()       # adds a legend
+</code></pre>
+
+<p>The above list covers majority of the functionality needed to recreate almost any plot.
+And for demonstration <code>example()</code> can be used to quickly see what each of those functions do, i.e. <code>example(rect)</code>.
+R also has some other helpful functions like <code>rug()</code> and <code>jitter()</code> to make certain situations easier but they are not crucial and can be implemented using the ones listed above.</p>
+
+<p>Function names are quite straightforward but what about their arguments?
+Indeed some of argument names, like <code>cex</code> can seem quite cryptic.
+But the argument name is always an abbreviation for a property of the plot<a href="#cn:3" id="cnref:3" title="see citation" class="citation"><sup>(3)</sup></a>.
+For example <code>col</code> is a shorthand for &#8220;color&#8221;, <code>lwd</code> stands for &#8220;line-width&#8221;, and <code>cex</code> means &#8220;character expansion&#8221;.
+Good news is that in general the same arguments stand for the same properties across all of base R functions.
+And for a specific function <code>help()</code> can always be used in order to get the list of all arguments and their descriptions.</p>
+
+<p>To further illustrate the consistency between arguments let&#8217;s return to the first example.
+By now it should be pretty clear, with one exception - the <code>axis(1)</code> and <code>axis(2)</code> lines.
+Where do those numbers: <code>1</code> and <code>2</code> came from?
+The numbers specify the positions around the plot and they start from <code>1</code> which refers to the bottom of the plot and go clockwise up to <code>4</code> which refers to the right side.
+The picture below demonstrates the relationship between numbers and four sides of the plot.</p>
+
+<pre><code>plot.new()
+box()
+mtext(&quot;1&quot;, side = 1, col = &quot;red3&quot;)
+mtext(&quot;2&quot;, side = 2, col = &quot;red3&quot;)
+mtext(&quot;3&quot;, side = 3, col = &quot;red3&quot;)
+mtext(&quot;4&quot;, side = 4, col = &quot;red3&quot;)
+</code></pre>
+
+<figure>
+<img src="figure/positions.svg" alt="" />
+</figure>
+
+<p>The same position numbers are used throughout the various different functions.
+Whenever a parameter of some function needs to specify a side, chances are it will do so using the numeric notation described above.
+Below are a few examples.</p>
+
+<pre><code>par(mar = c(0,0,4,4))        # margins of a plot: c(bottom, left, right , top)
+par(oma = c(1,1,1,1))        # outer margins of a plot
+axis(3)                      # side where axis will be displayed
+text(x, y, &quot;text&quot;, pos = 3)  # pos selects the side the &quot;text&quot; is displayed at
+mtext(&quot;text&quot;, side = 4)      # side specifies the margin &quot;text&quot; will appear in
+</code></pre>
+
+<p>Another important point is vectorization.
+Almost all the arguments for base plotting functions are vectorized.
+For example, when plotting rectangles the user does not have to add each point of each rectangle one by one within a loop.
+Instead he or she can draw all the related objects with one function call while at the same time specifying different positions and parameters for each.</p>
+
+<pre><code>plot.new()
+plot.window(xlim = c(0,3), ylim = c(0,3))
+
+rect(xleft = c(0,1,2), ybottom = c(0,1,2), xright = c(1,2,3), ytop = c(1,2,3),
+     border = c(&quot;pink&quot;,&quot;red&quot;,&quot;darkred&quot;), lwd = 10
+     )
+</code></pre>
+
+<figure>
+<img src="figure/rect.svg" alt="" />
+</figure>
+
+<p>Here is another example producing a check board pattern.</p>
+
+<pre><code>plot.new()
+plot.window(xlim = c(0,10), ylim = c(0,10))
+
+xs &lt;- rep(1:9, each = 9)
+ys &lt;- rep(1:9)
+
+rect(xs-0.5, ys-0.5, xs+0.5, ys+0.5, col = c(&quot;white&quot;,&quot;darkgrey&quot;))
+</code></pre>
+
+<figure>
+<img src="figure/checkboard.svg" alt="" />
+</figure>
+
+<h2 id="constructingaplot">Constructing a plot</h2>
+
+<p>One of base R graphics strengths is it&#8217;s flexibility and potential for customization.
+It really shines when the user needs to follow a particular style found in an existing example or a template<a href="#cn:4" id="cnref:4" title="see citation" class="citation"><sup>(4)</sup></a>.
+Below are a few illustrations demonstrating how different base functions can work together and reconstruct various types of common figures from scratch.</p>
+
+<ul>
+<li><p>Annotated barplot of USA population growth over time.</p>
+
+<pre><code>x &lt;- time(uspop)
+y &lt;- uspop
+
+plot.new()
+plot.window(xlim = range(x), ylim = range(pretty(y)))
+
+rect(x-4, 0, x+4, y)
+text(x, y, y, pos = 3, col = &quot;red3&quot;, cex = 0.7)
+
+mtext(x, 1, at = x, las = 2, cex = 0.7, font = 2)
+axis(2, lwd = 0, las = 2, cex.axis = 0.7, font.axis = 2)
+title(&quot;US population growth&quot;, adj = 0, col.main = &quot;red2&quot;)
+</code></pre>
+
+<figure>
+<img src="figure/barplot.svg" alt="" />
+</figure>
+
+<p>In this case for each rectangle four sets of points had to be specified: x and y for the left bottom corner plus x and y for the top right corner.
+In the end, even so this is a more complicated example, we still added all the different pieces of information using single function calls to <code>rect()</code>, <code>text()</code>, and <code>mtext()</code>.</p></li>
+<li><p>Parallel coordinates plot using the &#8220;iris&#8221; dataset.</p>
+
+<pre><code>palette(c(&quot;cornflowerblue&quot;, &quot;red3&quot;, &quot;orange&quot;))
+
+plot.new()
+plot.window(xlim = c(1,4), ylim = range(iris[,-5]))
+grid(nx = NA, ny = NULL)
+abline(v = 1:4, col = &quot;grey&quot;, lwd = 5, lty = &quot;dotted&quot;)
+
+matlines(t(iris[,-5]), col = iris$Species, lty = 1)
+
+axis(2, lwd = 0, las = 2)
+mtext(variable.names(iris)[-5], 3, at = 1:4, line = 1, col = &quot;darkgrey&quot;)
+
+legend(x = 1, y = 2, legend = unique(iris$Species), col = unique(iris$Species),
+       lwd = 3, bty = 'n')
+</code></pre>
+
+<figure>
+<img src="figure/parallel.svg" alt="" />
+</figure>
+
+<p>In this example we used a special function <code>matlines()</code> that draws one line for each column in a matrix.
+We also did a few other things that were novel so far: changed the default numeric colors via <code>palette()</code>, and used factor levels for specifying the actual colors within <code>matlines()</code> and <code>legend()</code>.
+Changing palette allows us to customize the color scheme while passing factors for the color arguments guarantees that the same colors are consistently assigned to the same factor levels across all the different functions.</p></li>
+<li><p>Dot plot of death rates in Virginia in 1940.</p>
+
+<pre><code>colors &lt;- hcl.colors(5, &quot;Zissou&quot;)
+ys     &lt;- c(1.25, 2, 1.5, 2.25)
+
+plot.new()
+plot.window(xlim = range(0,VADeaths), ylim = c(1,2.75))
+
+abline(h = ys, col = &quot;grey&quot;, lty = &quot;dotted&quot;, lwd = 3)
+points(VADeaths, ys[col(VADeaths)], col = colors, pch = 19, cex = 2.5)
+text(0, ys, colnames(VADeaths), adj = c(0.25,-1), col = &quot;lightslategrey&quot;)
+
+axis(1, lwd = 0, font = 2)
+title(&quot;deaths per 1000 in 1940 Virginia stratified by age, gender, and location&quot;)
+
+legend(&quot;top&quot;, legend = rownames(VADeaths), col = colors, pch = 19, horiz = TRUE,
+       bty = &quot;n&quot;, title = &quot;age bins&quot;)
+</code></pre>
+
+<figure>
+<img src="figure/dotplot.svg" alt="" />
+</figure>
+
+<p>In this graph the groups were stratified by gender, age, and location
+For each group the y-axis hights were chosen manually and <code>col()</code> function was used to repeat those heights for all numbers within the matrix.</p></li>
+<li><p>Dual coordinate plot using the &#8220;mtcars&#8221; dataset.</p>
+
+<pre><code>par(mar = c(4,4,4,4))
+plot.new()
+
+plot.window(xlim = range(mtcars$disp), ylim = range(pretty(mtcars$mpg)))
+
+points(mtcars$disp, mtcars$mpg, col = &quot;darkorange2&quot;, pch = 19, cex = 1.5)
+axis(2, col.axis = &quot;darkorange2&quot;, lwd = 2, las = 2)
+mtext(&quot;miles per gallon&quot;, 2, col = &quot;darkorange2&quot;, font = 2, line = 3)
+
+plot.window(xlim = range(mtcars$disp), ylim = range(pretty(mtcars$hp)))
+
+points(mtcars$disp, mtcars$hp, col = &quot;forestgreen&quot;, pch = 19, cex = 1.5)
+axis(4, col.axis = &quot;forestgreen&quot;, lwd = 2, las = 2)
+mtext(&quot;horse power&quot;, 4, col = &quot;forestgreen&quot;, font = 2, line = 3)
+
+box()
+axis(1)
+mtext(&quot;displacement&quot;, 1, font = 2, line = 3)
+title(&quot;displacement VS mpg VS hp&quot;, adj = 0, cex.main = 1)
+</code></pre>
+
+<figure>
+<img src="figure/twocoords.svg" alt="" />
+</figure>
+
+<p>Here we visualized two scatter plots, with different y-axes, on a single figure.
+The trick here is to change the coordinate system in the middle of the plot using <code>plot.window()</code>.
+But note that plots with double y-axes are frowned upon so do not take this example as a suggestion.</p></li>
+<li><p>Ridgeline Density Plot showing chicken weight distributions stratified by feed type.</p>
+
+<pre><code>dens &lt;- tapply(chickwts$weight, chickwts$feed, density)
+
+xs &lt;- Map(getElement, dens, &quot;x&quot;)
+ys &lt;- Map(getElement, dens, &quot;y&quot;)
+ys &lt;- Map(function(x) (x-min(x)) / max(x-min(x)) * 1.5, ys)
+ys &lt;- Map(`+`, ys, length(ys):1)
+
+plot.new()
+plot.window(xlim = range(xs), ylim = c(1,length(ys)+1.5))
+abline(h = length(ys):1, col = &quot;grey&quot;)
+
+Map(polygon, xs, ys, col = hcl.colors(length(ys), &quot;Zissou&quot;, alpha = 0.8))
+
+axis(1, tck = -0.01)
+mtext(names(dens), 2, at = length(ys):1, las = 2, padj = 0)
+title(&quot;Chicken weights&quot;, adj = 0, cex = 0.8)
+</code></pre>
+
+<figure>
+<img src="figure/ridgeline.svg" alt="" />
+</figure>
+
+<p>In this example majority of the work is done preparing the densities by transforming y values to a range of 0 - 1.5 and then adding a different offset for each feed type.
+To make the drawn densities overlap nicely we plot them starting from the topmost and going down.
+After that <code>Map()</code> and <code>polygon()</code> do all the work.</p></li>
+<li><p>Violin Plot of chicken weights versus feed type</p>
+
+<pre><code>dens &lt;- tapply(chickwts$weight, chickwts$feed, density)
+cols &lt;- hcl.colors(length(dens), &quot;Zissou&quot;)
+
+xs &lt;- Map(getElement, dens, &quot;y&quot;)
+ys &lt;- Map(getElement, dens, &quot;x&quot;)
+
+xs &lt;- Map(c, xs, Map(rev, Map(`*`, -1, xs)))
+ys &lt;- Map(c, ys, Map(rev, ys))
+
+xs &lt;- Map(function(x) (x-min(x)) / max(x-min(x) * 1.1), xs)
+xs &lt;- Map(`+`, xs, 1:length(xs))
+
+
+plot.new()
+plot.window(xlim = range(xs), ylim = range(ys))
+grid(nx = NA, ny = NULL, lwd = 2)
+
+Map(polygon, xs, ys, col = cols)
+
+axis(2, las = 1, lwd = 0)
+title(&quot;Chicken weight by feed type&quot;, font = 2)
+
+legend(&quot;top&quot;, legend = names(dens), fill = cols, ncol = 3, inset = c(0, 1),
+       xpd = TRUE, bty = &quot;n&quot;)
+</code></pre>
+
+<figure>
+<img src="figure/violinplot.svg" alt="" />
+</figure>
+
+<p>Now the polygons are double sided, and so we need to mirror and duplicate the <code>xs</code> and <code>ys</code>.
+In the code above 5th and 6th lines do this job.
+After that the plotting is almost identical to the previous example.
+There is one additional trick<a href="#cn:5" id="cnref:5" title="see citation" class="citation"><sup>(5)</sup></a> used on the legend where we use &#8220;inset&#8221; to push it over to the other side.</p></li>
+<li><p>Correlation matrix plot using variables from the &#8220;mtcars&#8221; dataset.</p>
+
+<pre><code>cors &lt;- cor(mtcars)
+cols &lt;- hcl.colors(200, &quot;RdBu&quot;)[round((cors+1)*100)]
+
+par(mar = c(5,5,0,0))
+plot.new()
+plot.window(xlim = c(0,ncol(cors)), ylim = c(0,ncol(cors)))
+
+rect(row(cors)-1, col(cors)-1, row(cors), col(cors))
+symbols(row(cors)-0.5, col(cors)-0.5, circles = as.numeric(abs(cors))/2,
+        inches = FALSE, asp = 1, add = TRUE, bg = cols
+        )
+
+mtext(rownames(cors), 1, at=1:ncol(cors)-0.5, las=2)
+mtext(colnames(cors), 2, at=1:nrow(cors)-0.5, las=2)
+</code></pre>
+
+<figure>
+<img src="figure/corrplot.svg" alt="" />
+</figure>
+
+<p>Here second line assigns colors for each correlation value by transforming correlation from a range of -1:1 to 0:200.
+Then we used <code>rect()</code> function to get the grid and <code>symbols()</code> for adding circles with specified radii.
+The resulting figure is similar to the one implemented by <code>corrplot</code> library<a href="#cn:6" id="cnref:6" title="see citation" class="citation"><sup>(6)</sup></a>.</p></li>
+</ul>
+
+<h2 id="summary">Summary</h2>
+
+<p>R base plotting system has several polished and easy to use wrappers that are sometimes convenient but in the long run only confuse and hide things.
+As a result most R users are never properly introduced to the real functions behind the base plotting paradigm and are left confused by many of its perceived idiosyncrasies.
+However, if inspected properly, base plotting can become powerful, flexible, and intuitive.
+Under the hood of all wrappers the heavy lifting is done by a small set of simple functions that work in tandem with one another.
+Often a few lines of code is all it takes to produce an elegant and customized figure.</p>
+
+<div class="citations">
+<hr />
+<ol>
+
+<li id="cn:1">
+<a href="https://simplystatistics.org/2016/02/11/why-i-dont-use-ggplot2/">&#8220;Why I don't use ggplot2&#8221;</a> by Jeff Leek <a href="#cnref:1" title="return to body" class="reversecitation">&#160;&#8617;&#xfe0e;</a>
+</li>
+
+<li id="cn:2">
+<a href="http://varianceexplained.org/r/why-I-use-ggplot2/">&#8220;Why I use ggplot2&#8221;</a> by David Robinson <a href="#cnref:2" title="return to body" class="reversecitation">&#160;&#8617;&#xfe0e;</a>
+</li>
+
+<li id="cn:3">
+<a href="https://www.stat.auckland.ac.nz/~paul/R/parMemnonics.html">&#8220;Graphics parameter mnemonics&#8221;</a> by Paul Murrell <a href="#cnref:3" title="return to body" class="reversecitation">&#160;&#8617;&#xfe0e;</a>
+</li>
+
+<li id="cn:4">
+<a href="https://stackoverflow.com/q/27934840/1953718">&#8220;Reproducing the style of a histogram plot in R&#8221;</a> on stackoverflow.com <a href="#cnref:4" title="return to body" class="reversecitation">&#160;&#8617;&#xfe0e;</a>
+</li>
+
+<li id="cn:5">
+<a href="https://stackoverflow.com/a/49501243/1953718">answer about plotting the legend in the margins with base R</a> on stackoverflow.com <a href="#cnref:5" title="return to body" class="reversecitation">&#160;&#8617;&#xfe0e;</a>
+</li>
+
+<li id="cn:6">
+<a href="https://cran.r-project.org/web/packages/corrplot/index.html">&#8220;corrplot&#8221;</a> package on CRAN <a href="#cnref:6" title="return to body" class="reversecitation">&#160;&#8617;&#xfe0e;</a>
+</li>
+
+</ol>
+</div>
+
+</body>
+</html>
+

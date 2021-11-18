@@ -1,0 +1,169 @@
+---
+title: "Text mining"
+author: "Fani Apostolidou Kiouti"
+date: "October, 2021"
+output:
+  html_document:
+    df_print: paged
+    theme: 
+      bootswatch: minty
+    toc: yes
+    toc_float: yes
+---
+
+```{r, message = F, warning = F}
+library(readtext);library(stringr);library(tidyr);library(tidytext);
+library(ggplot2);library(forcats);library(dplyr);library(ggraph);
+library(magrittr);library(topicmodels);library(forcats);library(widyr)
+```
+
+## Insert data
+
+To read data written in Greek into R, we need to define the system parameters such
+as to avoid reading in UTF-8 encoding. To do that, we need to set the locale to
+recognize the Greek alphabet: the function controlling these features is the
+`Sys.setlocale(category, locale)`; the category argument is set to `"LC_ALL"` and
+the `locale` argument is set to `"Greek"`.
+
+```{r insert and manipulate data, paged.print = TRUE}
+#library(readtext)
+Sys.setlocale(category = "LC_ALL", locale = "Greek")
+setwd("~/AUTh.MSc/IntroDataAnalytics/semi structured text mining")
+data <- readtext(paste0(getwd()), encoding = "UTF-8")
+
+# De-capitalize all letters in the texts
+#library(stringr)
+data[,2] <- str_to_lower(data[,2], locale = "greek")
+```
+
+
+```{r}
+# Read one text file
+m1 <- readLines("~/AUTh.MSc/IntroDataAnalytics/semi structured text mining/m01.txt", 
+                encoding = "UTF-8")
+```
+
+## Convert into a rectangular object
+
+Now, the first step is to remove the metacharacter from the text, to begin constructing
+a tabular form of the text. Additional characters that should be removed in this step are
+trailing spaces.
+
+```{r}
+## Remove empty lines
+m1n <- m1[sapply(m1, nchar) > 0]
+# Remove trailing spaces
+m1n %<>%
+  str_trim()
+# convert into tidy format
+mu <- tibble(lines = 1:length(m1n), text = m1n)
+glimpse(mu)
+class(mu)
+```
+
+There, we have a closer approximation to rectangular data to start extracting
+information from. We can now use functions from the {tidytext} library that
+takes dataframes as input and provides a variety of functions to break down
+their elements.
+
+## Tokenize
+
+The `unnest_tokens()` is a function that takes a dataframe and split its columns
+into tokens and resulting into one-token-per-row. The first argument is the table
+(here it is passed through the pipe) and the following two are the output and the
+input arguments. The output must be named and the input must be present in the 
+table. Both are written as variables and not as characters. Having completed this
+tabulation the final step is counting the occurrences of each instant irrespective
+of line position, in the entire text. This is accomplished with the `count()` from
+{dplyr}.
+
+```{r, fig.height = 12}
+# and create a dataframe with two columns: line position and word
+library(tidytext)
+mu1 <- mu %>%
+  unnest_tokens(word, text) #%>%
+# a nested dataset with lists for each line, one column per word
+
+# beware of  the difference in the elements created
+class(mu1[1,])
+class(mu1[[1]])
+
+# tabulate the words found in text
+mu1 %<>%
+  count(word, sort = T)
+
+### make a plot for the terms in text
+mu1 %>%
+  # within the aesthetics, reorder the occurrences to facilitate interpretation
+  ggplot(aes(y = fct_reorder(word, n), x = n)) + 
+  geom_bar(stat = "identity", fill = "steelblue")
+```
+
+```{r, results = "hide"}
+# define the pattern under investigation
+ptrn <- "ACR"
+# and detect it
+lapply(m1, function(x){str_locate(x, ptrn)})
+```
+
+Can we extract the information on ACR? First we should clear up the string (line 13)
+where our pattern is found: this is accomplished with the use of regular expressions to
+identify white spaces `\\s*` (note the addition of wildcard; human typing is inconsistent
+so we use this as a precaution with the aim to apply this to the whole corpus) and 
+punctuation used in text. The final regular expression `\\w+` defines any word character
+following the pattern:
+
+```{r}
+str_match(m1[13], "ACR\\s*[[:punct:]]\\s*(\\w+)")
+```
+
+## Removing stop words and detecting relationships
+
+The steps include tokenization into three-word tokens, splitting them into columns to 
+apply a filter for the stop words and then count the frequencies in the remaining document:
+
+```{r, removing stop words fig.width = 11, fig.height = 6}
+stpw <- tibble(word = c("της", "του", "με", "και", 
+                        "το", "την", "στην", "ως", 
+                        "να", "η", "τα", "στον", 
+                        "σε", "που", "στο"))
+mmm <- mu %>%
+  unnest_tokens(trigram, text, token = "ngrams", n = 3) %>%
+  separate(trigram, c("w1", "w2", "w3"), sep = " ") %>%  # split trigrams to columns
+  filter(!w1 %in% stpw$word,          # remove all obsolete words
+         !w2 %in% stpw$word,
+         !w3 %in% stpw$word) %>%
+  count(w1, w2, w3, sort = T)      # count
+
+set.seed(2021)
+a <- grid::arrow(type = "open", length = unit(.1, "inches"))
+mmm %>%
+  igraph::graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(arrow = a) +
+  geom_node_point(colour = "steelblue") +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1)
+
+```
+
+
+```{r information extraction}
+# Extract the ACR classification
+
+## unite the trigram data
+mmmF <- mmm %>%
+  unite(trigram, w1, w2, w3, sep = " ")
+
+## look up the pattern
+sapply(mmmF, function(x){str_extract(x, "acr")})
+
+## and extract the information, using its position
+str_match(mmmF[3,1], "acr\\s*(\\w+)")
+
+## repeat for BIRADS
+
+sapply(mmmF, function(x){str_extract(x, "birads")})
+
+str_match(mmmF[4,1], "birads\\s*(\\w+)")
+```
+
