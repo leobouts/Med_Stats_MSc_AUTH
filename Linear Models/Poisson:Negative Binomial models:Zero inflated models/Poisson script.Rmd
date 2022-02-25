@@ -1,0 +1,173 @@
+```{r}
+library(broom)
+library(multcomp)
+library(tidyverse)
+library(sandwich)
+library(performance)
+library(NHSRdatasets)
+dt <- read.csv("poisson_sim.csv") # simulated data; number of adverse effects for three drug indications
+data("LOS_model")
+poissonlshtm <- readxl::read_xlsx("poissonlshtm.xlsx")
+```
+
+Example of a Poisson process
+
+Suppose the probability that a drug produces a certain side effect 
+is p = 0.1% and n = 1,000 patients in a clinical trial receive the drug. 
+What is the probability 0 people experience the side effect?
+  
+```{r}
+# The expected value is np
+1000 * .001
+# The probability of measuring 0 when the expected value is 1
+dpois(x = 0, lambda = 1000 * .001)
+options(scipen = 999, digits = 2) # sig digits
+
+x <- 0:10
+density <- dpois(x = x, lambda = 1000 * .001)
+prob <- ppois(q = x, lambda = 1000 * .001, lower.tail = TRUE)
+df <- data.frame(x, density, prob)
+
+ggplot(df, aes(x = x, y = density)) +
+  geom_col() +
+  geom_text(
+    aes(label = round(density, 2), y = density + 0.01),
+    position = position_dodge(0.9),
+    size = 3,
+    vjust = 0
+  ) +
+  labs(title = "Poisson(1)",
+       subtitle = "PMF and CDF of Poisson(1) distribution.",
+       x = "Events (x)",
+       y = "Density") +
+  geom_line(data = df, aes(x = x, y = prob))
+
+```
+
+
+---------------
+Poisson regression
+---------------
+
+Poisson Regression Assumptions
+```{r}
+# explore whether the response is a Poisson process
+dt %>%
+  ggplot(aes(n.ev)) +
+  geom_bar() +
+  facet_grid(cols = vars(ind))
+
+# inspect means and variances
+dt %>%
+  group_by(ind) %>%
+  summarise(mean = mean(n.ev, na.rm = T), variance = var(n.ev))
+
+# linearity of the log(estimated mean)
+mdl1 <- glm(n.ev ~ age, family = "poisson", data = dt)
+plot(mdl1, 1)
+fortify(mdl1) %>% 
+  ggplot(aes(age, .resid)) + geom_smooth() + geom_jitter()
+```
+
+Model summary
+```{r}
+# obtain model summary
+summary(mdl1)
+
+# Dispersion parameter rule of thumb less than 1
+sum(residuals(mdl1, type ="pearson")^2)/mdl1$df.residual
+
+# obtain model summary
+summary(mdl1)
+# obtain a table
+gtsummary::tbl_regression(mdl1)
+```
+
+GOF
+```{r}
+# Run a chi-squared test to check goodness-of-fit
+pchisq(mdl1$deviance, mdl1$df.residual, lower.tail = FALSE)
+
+# Suppose we want to drop one independent variable and compare model fit
+mdl2 <- update(mdl1, . ~ . -age)
+anova(mdl2, mdl1, test = "Chisq")
+```
+
+Graphical presentation of the model prediction
+```{r}
+# Calculate expected counts
+dt$phat <- predict(mdl1, type = "response")
+dt <- dt[with(dt, order(age)), ]
+# and represent them graphically
+ggplot(dt, aes(x = age, y = phat)) +
+  geom_point(aes(y = n.ev), alpha = .5, position = position_jitter(h = .2)) +
+  geom_line(size = 1) +
+  labs(x = "Age", y = "Expected number of events")
+
+```
+
+
+---------------
+Quasi-poisson
+--------------
+
+Overdispersion for a variable is present use quasi-Poisson:
+there is more variation in the response than the model implies
+We can estimate a dispersion parameter by dividing the model deviance by its corresponding degrees of freedom
+or use the formal calculation dividing the Pearson residuals squared to the the residual degrees of freedom
+
+```{r}
+mdllos <- glm(LOS ~ Age + Death + Organisation, data = LOS_model, family = "poisson")
+summary(mdllos)
+
+sum(residuals(mdllos, type ="pearson")^2)/mdllos$df.residual
+
+quasiLOS <- glm(LOS ~ Age + Death + Organisation, data = LOS_model, family = "quasipoisson")
+summary(quasiLOS)
+```
+
+
+----------------
+Negative binomial regression
+----------------
+
+An exlpicit likelihood alternative to quasi-poisson in the case of overdispersion 
+which allows for an additional parameter. As a result, it yields a more flexible model.
+
+```{r}
+library(MASS)
+negbnLOS <- glm.nb(LOS ~ Age + Death + Organisation, data = LOS_model)
+summary(negbnLOS)
+```
+
+
+Since there are multiple levels in the Organisation variable, we should adjust 
+for multiple comparisons using Tukey's honestly significant difference
+When there are statistically significant differences, interaction terms must be considered.
+
+```{r}
+# linfct is a specification of a linear hypothesis
+# mcp(var = "method")
+summary(glht(mdllos, linfct = mcp(Organisation = "Tukey")))
+```
+
+
+
+------------------
+Zero-inflated models
+------------------
+
+In settings with excess zero counts, the Poisson model is fitted with an 
+additional parameter which corresponds to the proportion of zeroes.
+
+
+```{r}
+library(pscl)
+poisalc <- glm(death ~ agein + alcohol + drug.use, data = poissonlshtm, family = "poisson")
+summary(poisalc)
+zimalc <- zeroinfl(death ~ agein + alcohol + drug.use, data = poissonlshtm)
+check_zeroinflation(poisalc, tolerance = 0.05)
+summary(zimalc)
+# Vuong test
+vuong(zimalc, poisalc)
+```
